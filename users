@@ -1,0 +1,63 @@
+-- Table: users
+------------------------------------------------
+-- Create Table users and import users.json
+CREATE TABLE users (values json);
+GRANT SELECT ON users TO PUBLIC;
+COPY users from 'C:\Users\joszp\Documents\Fetch\users.json';
+
+-- Verify table
+SELECT * FROM users
+
+	-- Inspect JSON file and extract values to a new table
+-- Extract all keys
+SELECT DISTINCT(json_object_keys(values)) FROM users;		-- 7 keys
+-- "_id", "createdDate", "state", "signUpSource", "role", "lastLogin", "active"
+
+-- Identify the path for each feature
+SELECT values FROM users;
+SELECT values->>'_id' FROM users;
+SELECT values::json#>>'{_id,$oid}' FROM users; -- _id
+SELECT values->>'createdDate' FROM users;
+SELECT values::json#>>'{createdDate,$date}' FROM users; -- createdDate
+SELECT values->>'state' FROM users; -- state
+SELECT values->>'signUpSource' FROM users; -- signUpSource
+SELECT values->>'role' FROM users; -- role
+SELECT values->>'lastLogin' FROM users;
+SELECT values::json#>>'{lastLogin,$date}' FROM users; -- lastLogin
+SELECT values->>'active' FROM users; -- active
+
+-- Create table to store JSON parsed values
+CREATE TABLE users_parsed (
+	index SERIAL,
+	user_id VARCHAR,
+	created_date BIGINT, 
+	state VARCHAR,
+	sign_up_source VARCHAR,
+	role VARCHAR,
+	last_login BIGINT,
+	active BOOLEAN);
+
+-- Verify table
+SELECT * FROM users_parsed
+DROP TABLE users_parsed
+
+-- Extract data from users into users_parsed
+INSERT INTO users_parsed(user_id, created_date, state, sign_up_source, role, last_login, active)
+SELECT DISTINCT(values::json#>>'{_id,$oid}'), CAST(values::json#>>'{createdDate,$date}' AS BIGINT), values->>'state', values->>'signUpSource',
+	values->>'role', CAST(values::json#>>'{lastLogin,$date}' AS BIGINT), CAST(values->>'active' AS BOOLEAN)
+FROM users;
+
+-- Verify table
+SELECT * FROM users_parsed
+	
+
+-- Alter tables expression to change column data type and add expression for date/time conversion
+ALTER TABLE users_parsed
+ALTER COLUMN created_date TYPE timestamp USING to_timestamp(cast(users_parsed.created_date/1000 as bigint));
+
+ALTER TABLE users_parsed
+ALTER COLUMN last_login TYPE timestamp USING to_timestamp(cast(users_parsed.last_login/1000 as bigint));
+	
+-- Verify table
+SELECT * FROM users_parsed
+
